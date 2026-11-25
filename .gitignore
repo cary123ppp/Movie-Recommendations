@@ -1,0 +1,8 @@
+config.yaml
+cache/
+output/
+models/
+__pycache__/
+*.pyc
+.DS_Store
+*.tmp.mp4

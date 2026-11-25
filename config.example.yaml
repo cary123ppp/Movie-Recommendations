@@ -1,0 +1,22 @@
+# Copy this file to config.yaml and fill in your keys.
+# config.yaml is in .gitignore, so your keys never get uploaded.
+
+tmdb_token: ""        # TMDB "API Read Access Token" (the long one). Required.
+omdb_key: ""          # OMDb key, for IMDb rating + Oscar info. Recommended.
+
+voice:
+  engine: kokoro      # kokoro (free, offline) | elevenlabs (paid, more natural)
+  kokoro_voice: am_michael
+  kokoro_speed: 1.08
+  elevenlabs_key: ""
+  elevenlabs_voice_id: ""          # pick a voice in ElevenLabs and paste its ID
+  elevenlabs_model: eleven_multilingual_v2
+
+brand:
+  name: REELRANK                   # change per account, e.g. FRIGHTRANK
+  year: 2026                       # shown in the "Official Selection" laurel
+
+music: ""                          # optional path to a royalty-free track (mp3/wav); ducked under the voice
+
+output_dir: output
+cache_dir: cache
