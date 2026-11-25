@@ -15,7 +15,7 @@ def load_config(path=None):
     cfg.setdefault("voice", {}); cfg.setdefault("brand", {})
     cfg["tmdb_token"] = os.environ.get("TMDB_TOKEN", cfg.get("tmdb_token", ""))
     cfg["omdb_key"] = os.environ.get("OMDB_KEY", cfg.get("omdb_key", ""))
-    cfg["voice"].setdefault("engine", "kokoro")
+    cfg["voice"].setdefault("engine", "elevenlabs")
     cfg["voice"].setdefault("kokoro_voice", "am_michael")
     cfg["voice"].setdefault("kokoro_speed", 1.08)
     cfg["voice"]["elevenlabs_key"] = os.environ.get("ELEVENLABS_KEY", cfg["voice"].get("elevenlabs_key", ""))

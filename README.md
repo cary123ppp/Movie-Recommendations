@@ -70,11 +70,15 @@ python -m pip install -r requirements.txt
 |---|---|---|
 | `tmdb_token` | themoviedb.org → Settings → API → **API Read Access Token**（很长的那串） | 必需 |
 | `omdb_key` | omdbapi.com → API Key → FREE，key 会发到邮箱 | 推荐（用于 IMDb 评分和奥斯卡信息） |
-| `voice.elevenlabs_key` / `elevenlabs_voice_id` | elevenlabs.io | 可选（更像真人的付费配音） |
+| `voice.elevenlabs_key` | elevenlabs.io → 左下角头像 → API Keys → Create | 必需（默认用 ElevenLabs 配音） |
 
 `config.yaml` 已经写在 `.gitignore` 里，**不会被上传到 GitHub**。
 
-第一次运行时，程序会自动下载免费的 AI 配音模型（约 300MB），以后不用再下。
+**配音设置：**
+- 默认声音是 ElevenLabs 的 "Brian"，一个低沉的美式男声，适合电影解说。想换声音的话，在 ElevenLabs 的 Voices 页面选一个，复制它的 Voice ID，填到 `elevenlabs_voice_id`。
+- `stability` 越低，语气越有起伏；`style` 越高，越有戏剧感。
+- 一期视频大约消耗 1,000～1,500 个字符。改了某段文案后，只有那一段会重新配音，不会重复扣字符。
+- 不想用付费配音的话，把 `engine` 改成 `kokoro`，就会用免费的离线声音（第一次用时自动下载约 300MB 的模型）。
 
 ---
 
@@ -174,7 +178,8 @@ python -m reelrank build episodes/xxx.yaml --config config_horror.yaml
 
 - **预告片下载失败**：先运行 `python -m pip install -U yt-dlp` 更新下载工具（YouTube 经常改版）。还不行的话，就自己下载视频，用 `trailer_file` 指定本地文件。
 - **某个镜头里有字幕或片名字卡**：用 `exclude` 把那几秒排除掉。
-- **字幕高亮和声音对不齐**：安装 `faster-whisper`（见安装第 2 步），或者改用 ElevenLabs 配音。
+- **字幕高亮和声音对不齐**：ElevenLabs 会返回每个字的精确时间，字幕本来就是对齐的。如果用的是 Kokoro，可以安装 `faster-whisper` 改善对齐。
+- **ElevenLabs 报错 401 / 402**：401 是 key 填错了；402 是本月字符额度用完了。
 
 ---
 

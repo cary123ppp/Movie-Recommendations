@@ -5,12 +5,14 @@ tmdb_token: ""        # TMDB "API Read Access Token" (the long one). Required.
 omdb_key: ""          # OMDb key, for IMDb rating + Oscar info. Recommended.
 
 voice:
-  engine: kokoro      # kokoro (free, offline) | elevenlabs (paid, more natural)
+  engine: elevenlabs  # elevenlabs (natural, paid) | kokoro (free, offline, a bit robotic)
+  elevenlabs_key: ""
+  elevenlabs_voice_id: "nPczCjzI2devNBz1zQrb"   # "Brian": deep US narrator. Swap for any voice ID from your ElevenLabs Voices page.
+  elevenlabs_model: eleven_multilingual_v2      # best quality; eleven_turbo_v2_5 is cheaper
+  stability: 0.45     # lower = more expressive, higher = steadier
+  style: 0.25         # 0-1, how dramatic the delivery is
   kokoro_voice: am_michael
   kokoro_speed: 1.08
-  elevenlabs_key: ""
-  elevenlabs_voice_id: ""          # pick a voice in ElevenLabs and paste its ID
-  elevenlabs_model: eleven_multilingual_v2
 
 brand:
   name: REELRANK                   # change per account, e.g. FRIGHTRANK

@@ -47,10 +47,22 @@ def kokoro(text, out_wav, vcfg, models_dir):
 
 
 def elevenlabs(text, out_wav, vcfg):
-    body = json.dumps(dict(text=text, model_id=vcfg.get("elevenlabs_model", "eleven_multilingual_v2"))).encode()
-    req = urllib.request.Request(f"https://api.elevenlabs.io/v1/text-to-speech/{vcfg['elevenlabs_voice_id']}/with-timestamps",
+    import urllib.error
+    vid = vcfg.get("elevenlabs_voice_id") or "nPczCjzI2devNBz1zQrb"      # "Brian" (deep US narrator) if none set
+    body = json.dumps(dict(text=text, model_id=vcfg.get("elevenlabs_model") or "eleven_multilingual_v2",
+                           voice_settings=dict(stability=float(vcfg.get("stability", 0.45)), similarity_boost=0.8,
+                                               style=float(vcfg.get("style", 0.25)), use_speaker_boost=True))).encode()
+    req = urllib.request.Request(f"https://api.elevenlabs.io/v1/text-to-speech/{vid}/with-timestamps",
                                  data=body, headers={"xi-api-key": vcfg["elevenlabs_key"], "Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=120) as r: res = json.loads(r.read())
+    try:
+        with urllib.request.urlopen(req, timeout=180) as r: res = json.loads(r.read())
+    except urllib.error.HTTPError as e:
+        detail = e.read().decode(errors="ignore")[:300]
+        hint = {401: "API key is wrong or expired (check elevenlabs_key in config.yaml)",
+                402: "out of ElevenLabs credits/characters for this month",
+                404: "voice ID not found (check elevenlabs_voice_id)",
+                429: "too many requests, wait a minute and run again"}.get(e.code, "")
+        raise SystemExit(f"ElevenLabs error {e.code}: {hint}\n{detail}")
     mp3 = Path(out_wav).with_suffix(".mp3"); mp3.write_bytes(base64.b64decode(res["audio_base64"]))
     subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(mp3), "-ar", str(SR), "-ac", "1", str(out_wav)], check=True)
     al = res.get("alignment") or res.get("normalized_alignment")
@@ -90,7 +102,8 @@ def refine_with_whisper(wav, words):
 def synth_all(ep, cfg, work):
     work = Path(work); work.mkdir(parents=True, exist_ok=True)
     vcfg = cfg["voice"]; models = Path(cfg["cache_dir"]) / "models"
-    sig = json.dumps([vcfg.get("engine"), vcfg.get("kokoro_voice"), vcfg.get("kokoro_speed"), vcfg.get("elevenlabs_voice_id")])
+    sig = json.dumps([vcfg.get("engine"), vcfg.get("kokoro_voice"), vcfg.get("kokoro_speed"), vcfg.get("elevenlabs_voice_id"),
+                      vcfg.get("elevenlabs_model"), vcfg.get("stability"), vcfg.get("style")])
     items = [("hook", ep["hook"]["vo"])] + [(f["key"], f["vo"]) for f in ep["films"]] + [("outro", ep["outro"]["vo"])]
     meta_f = work / "vo.json"; meta = json.loads(meta_f.read_text(encoding="utf-8")) if meta_f.exists() else {}
     for key, text in items:
@@ -99,7 +112,8 @@ def synth_all(ep, cfg, work):
         if not text.strip():
             import soundfile as sf; sf.write(wav, np.zeros(int(SR * 0.5), np.float32), SR); meta[key] = dict(text=text, sig=sig, dur=0.5, words=[]); continue
         print(f"  voice: {key}")
-        if vcfg.get("engine") == "elevenlabs" and vcfg.get("elevenlabs_key"):
+        if vcfg.get("engine") == "elevenlabs":
+            if not vcfg.get("elevenlabs_key"): raise SystemExit("voice.engine is elevenlabs but voice.elevenlabs_key is empty in config.yaml")
             words, dur = elevenlabs(text, wav, vcfg)
         else:
             words, dur = kokoro(text, wav, vcfg, models); words = refine_with_whisper(wav, words)
