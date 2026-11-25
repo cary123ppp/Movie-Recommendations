@@ -23,7 +23,7 @@ def transcribe(trailer, cache_json):
     except ImportError:
         raise SystemExit("Original-audio moments need faster-whisper:  python -m pip install faster-whisper")
     if _model is None:
-        print("  loading speech model (first time downloads ~150MB)...")
+        print("  loading speech model (first time downloads ~500MB)...")
         _model = WhisperModel("small.en", compute_type="int8")
     wav = cache_json.with_suffix(".wav")
     subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(trailer), "-vn", "-ac", "1", "-ar", "16000", str(wav)], check=True)
