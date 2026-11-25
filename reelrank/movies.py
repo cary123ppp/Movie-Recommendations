@@ -41,7 +41,7 @@ def fetch_movie(cfg, film, cache_dir):
     cdir = Path(cache_dir) / "meta"; cdir.mkdir(parents=True, exist_ok=True)
     cfile = cdir / f"{re.sub(r'[^a-z0-9]+', '-', film['title'].lower())}-{film.get('year', '')}.json"
     if cfile.exists():
-        meta = json.loads(cfile.read_text())
+        meta = json.loads(cfile.read_text(encoding="utf-8"))
     else:
         meta = dict(title=film["title"], year=film.get("year"))
         if cfg.get("tmdb_token"):
@@ -66,7 +66,7 @@ def fetch_movie(cfg, film, cache_dir):
                 meta["awards"] = o.get("Awards")
             except Exception as e:
                 print("  OMDb lookup failed:", e)
-        cfile.write_text(json.dumps(meta, indent=1))
+        cfile.write_text(json.dumps(meta, indent=1), encoding="utf-8")
     # episode file always wins over fetched values
     for k in ("director", "year", "imdb", "trailer_url", "fact"):
         if film.get(k) is not None: meta[k] = film[k]

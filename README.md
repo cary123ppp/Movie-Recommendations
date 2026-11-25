@@ -15,6 +15,23 @@
 
 ---
 
+## Windows 最简用法（推荐）
+
+1. 先装 Python 3.11：https://www.python.org/downloads/ ，安装时**勾选 "Add Python to PATH"**。
+2. 下载本项目：在 GitHub 页面点绿色的 **Code → Download ZIP**，解压到一个**没有空格、不含中文**的路径，比如 `D:\ReelRank`。会用 git 的话直接 clone 也行。
+3. 双击 **`install.bat`**：会自动安装 ffmpeg 和所有依赖。第一次装 ffmpeg 后需要再双击一次。最后它会用记事本打开 `config.yaml`，把 key 填进去保存即可。
+4. 写文案：复制 `episodes\war_too_real.yaml` 改成你的内容（用记事本或 VS Code 编辑，保存为 UTF-8）。
+5. 把文案文件**拖到对应的图标上**：
+   - `check.bat`：检查电影和预告片有没有找对
+   - `preview.bat`：几分钟出几张静帧，检查排版
+   - `make.bat`：生成成品，完成后自动打开 `output` 文件夹
+
+> 在文案里写 Windows 本地路径时，用单引号或正斜杠，比如 `trailer_file: 'D:\Videos\spr.mp4'` 或 `trailer_file: D:/Videos/spr.mp4`。不要用双引号加反斜杠，YAML 会把它当成转义字符。
+
+下面是命令行方式的详细说明（Mac 也适用）。
+
+---
+
 ## 一、安装（只需要做一次）
 
 ### 1. 安装 Python 和 ffmpeg

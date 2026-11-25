@@ -10,7 +10,7 @@ FPS = 30
 
 def load_config(path=None):
     p = Path(path or ROOT / "config.yaml")
-    cfg = yaml.safe_load(p.read_text()) if p.exists() else {}
+    cfg = yaml.safe_load(p.read_text(encoding="utf-8")) if p.exists() else {}
     cfg = cfg or {}
     cfg.setdefault("voice", {}); cfg.setdefault("brand", {})
     cfg["tmdb_token"] = os.environ.get("TMDB_TOKEN", cfg.get("tmdb_token", ""))
@@ -29,7 +29,7 @@ def load_config(path=None):
 
 
 def load_episode(path):
-    ep = yaml.safe_load(Path(path).read_text())
+    ep = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
     ep.setdefault("slug", Path(path).stem)
     films = ep.get("films") or []
     if not films: raise SystemExit("episode has no films")

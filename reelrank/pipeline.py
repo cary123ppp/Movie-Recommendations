@@ -23,7 +23,7 @@ def prepare_films(ep, cfg, work):
     """Metadata + trailer + shot analysis for every film."""
     metas, sources = {}, {}
     for f in ep["films"]:
-        print(f"• #{f['rank']} {f['title']}")
+        print(f"> #{f['rank']} {f['title']}")
         m = movies.fetch_movie(cfg, f, cfg["cache_dir"])
         if f.get("trailer_file"):
             path = Path(f["trailer_file"]).expanduser()
@@ -84,7 +84,7 @@ def build_base(fmt, jobs, work, frames):
         os.replace(str(out) + ".tmp.mp4", out); return out
     with ThreadPoolExecutor(max(1, min(4, (os.cpu_count() or 2)))) as ex:
         files = list(ex.map(one, enumerate(jobs)))
-    (cdir / "list.txt").write_text("".join(f"file '{p.name}'\n" for p in files))
+    (cdir / "list.txt").write_text("".join(f"file '{p.name}'\n" for p in files), encoding="utf-8")
     base = Path(work) / f"base_{fmt}.mp4"
     run(["ffmpeg", "-v", "error", "-y", "-f", "concat", "-safe", "0", "-i", str(cdir / "list.txt"), "-c", "copy", str(base)])
     return base
@@ -133,22 +133,22 @@ def build(ep, cfg, formats=("h", "v"), preview=False):
     slug = ep["slug"]; work = Path(cfg["cache_dir"]) / "work" / slug; work.mkdir(parents=True, exist_ok=True)
     outdir = Path(cfg["output_dir"]); outdir.mkdir(parents=True, exist_ok=True)
     metas, sources = prepare_films(ep, cfg, work)
-    print("• voice-over"); vo = voice.synth_all(ep, cfg, work)
+    print("> voice-over"); vo = voice.synth_all(ep, cfg, work)
     tl, jobs = build_timeline(ep, vo, sources)
-    (work / "timeline.json").write_text(json.dumps(tl, indent=1))
-    print(f"• timeline: {tl['total']:.1f}s")
+    (work / "timeline.json").write_text(json.dumps(tl, indent=1), encoding="utf-8")
+    print(f"> timeline: {tl['total']:.1f}s")
     results = []
     for fmt in formats:
-        print(f"• footage [{fmt}]"); base = build_base(fmt, jobs, work, tl["frames"])
+        print(f"> footage [{fmt}]"); base = build_base(fmt, jobs, work, tl["frames"])
         if preview:
             times = [2.5] + [s["start"] + 2.6 for s in tl["sections"] if s["kind"] == "film"][:2] + \
                     [s["start"] + s["card"] + 3 for s in tl["sections"] if s["kind"] == "film"][:2] + [tl["sections"][-1]["start"] + 3.5]
             results += render.render(fmt, tl, ep, metas, vo, cfg["brand"], base, outdir / f"{slug}_preview_{fmt}", only=times); continue
-        print(f"• rendering [{fmt}]")
+        print(f"> rendering [{fmt}]")
         vid = render.render(fmt, tl, ep, metas, vo, cfg["brand"], base, work / f"video_{fmt}.mp4")
         results.append(vid)
     if preview: return results
-    print("• audio"); mix = mix_audio(tl, work, cfg.get("music") or None)
+    print("> audio"); mix = mix_audio(tl, work, cfg.get("music") or None)
     finals = []
     for fmt in formats:
         name = outdir / f"{slug}_{'16x9' if fmt == 'h' else '9x16'}.mp4"
