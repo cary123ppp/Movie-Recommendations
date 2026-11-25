@@ -10,13 +10,13 @@ def download(url, dest):
     if dest.exists() and dest.stat().st_size > 100_000: return dest
     import yt_dlp
     dest.parent.mkdir(parents=True, exist_ok=True)
-    opts = dict(format="bv*[height<=1080][ext=mp4]/bv*[height<=1080]/b[height<=1080]", outtmpl=str(dest.with_suffix(".%(ext)s")),
+    opts = dict(format="bv*[height<=1080][ext=mp4]+ba[ext=m4a]/bv*[height<=1080]+ba/b[height<=1080]", outtmpl=str(dest.with_suffix(".%(ext)s")),
                 merge_output_format="mp4", quiet=True, no_warnings=True, noplaylist=True)
     with yt_dlp.YoutubeDL(opts) as y: y.download([url])
     got = sorted(dest.parent.glob(dest.stem + ".*"), key=lambda p: p.stat().st_size, reverse=True)
     if not got: raise SystemExit(f"download failed: {url}")
     if got[0] != dest:
-        subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(got[0]), "-an", "-c:v", "copy", str(dest)], check=True)
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(got[0]), "-c:v", "copy", "-c:a", "aac", str(dest)], check=True)
     return dest
 
 
@@ -57,25 +57,33 @@ def analyze(path, crop=None, rate=6):
     return shots
 
 
-def pick(shots, dur, n, clen, skip_head=0.07, skip_tail=0.13, use_range=None, exclude=()):
-    """Choose n clip start times (each clen long) spread across the trailer, plus a calm card shot."""
+def good_shots(shots, dur, skip_head=0.07, skip_tail=0.13, use_range=None, exclude=()):
     lo, hi = (use_range if use_range else (dur * skip_head, dur * (1 - skip_tail)))
     def bad(s):
         if s["t1"] <= lo or s["t0"] >= hi: return True
         if s["luma"] < 28 or s["dark"] > 0.62: return True        # black / title-card frames
         return any(not (s["t1"] <= a or s["t0"] >= b) for a, b in exclude)
-    good = [s for s in shots if not bad(s) and s["t1"] - s["t0"] >= 0.5]
-    if not good: good = [dict(t0=lo, t1=hi, luma=60, dark=0, motion=5)]
+    good = [dict(s, t0=max(s["t0"], lo), t1=min(s["t1"], hi)) for s in shots if not bad(s) and min(s["t1"], hi) - max(s["t0"], lo) >= 0.5]
+    return good or [dict(t0=lo, t1=hi, luma=60, dark=0, motion=5)], lo, hi
+
+
+def card_shot(good, lo):
     calm = sorted([s for s in good if s["t1"] - s["t0"] >= 2.0], key=lambda s: (s["motion"], -(s["t1"] - s["t0"])))
-    card = (calm[0] if calm else max(good, key=lambda s: s["t1"] - s["t0"]))
-    card_t = max(lo, card["t0"] + 0.2)
+    c = calm[0] if calm else max(good, key=lambda s: s["t1"] - s["t0"])
+    return max(lo, c["t0"] + 0.2), c
+
+
+def clip_from(shot, clen, lo, hi):
+    mid = (shot["t0"] + shot["t1"]) / 2
+    return max(lo, min(mid - clen / 2, hi - clen))
+
+
+def pick(shots, dur, n, clen, skip_head=0.07, skip_tail=0.13, use_range=None, exclude=()):
+    """Choose n clip start times (each clen long) spread across the trailer, plus a calm card shot."""
+    good, lo, hi = good_shots(shots, dur, skip_head, skip_tail, use_range, exclude)
+    card_t, card = card_shot(good, lo)
     pool = [s for s in good if s is not card] or good
-    # even spread over the pool, prefer longer & livelier shots
-    picks = []
-    idx = np.linspace(0, len(pool) - 1, min(n, len(pool))).round().astype(int)
-    for i in idx:
-        s = pool[i]; mid = (s["t0"] + s["t1"]) / 2
-        picks.append(max(lo, min(mid - clen / 2, hi - clen)))
-    while len(picks) < n:      # trailer with few usable shots: reuse spaced offsets
+    picks = [clip_from(pool[i], clen, lo, hi) for i in np.linspace(0, len(pool) - 1, min(n, len(pool))).round().astype(int)]
+    while len(picks) < n:
         picks.append(lo + (hi - lo - clen) * (len(picks) % n) / max(1, n))
     return sorted(picks)[:n], card_t

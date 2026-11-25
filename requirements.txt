@@ -5,5 +5,5 @@ requests>=2.31
 yt-dlp>=2024.10.0
 kokoro-onnx>=0.4.0
 soundfile>=0.12
-# Optional: exact word timing for captions when using the free Kokoro voice
-# faster-whisper>=1.0
+faster-whisper>=1.0          # finds dialogue lines in trailers (original-audio moments)
+sentence-transformers>=3.0   # matches shots to the narration (CLIP); remove this line to skip it

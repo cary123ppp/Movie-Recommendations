@@ -3,6 +3,14 @@
 
 tmdb_token: ""        # TMDB "API Read Access Token" (the long one). Required.
 omdb_key: ""          # OMDb key, for IMDb rating + Oscar info. Recommended.
+deepseek_key: ""      # DeepSeek key: splits free-form scripts and picks original-audio moments.
+
+originals:            # short moments of real movie dialogue between narration sentences
+  auto: true          # let DeepSeek pick them when the script has no [ORIGINAL: ...] markers
+  per_film: 1         # 0 = never
+  cold_open: true     # open the video with one line of movie dialogue before the title
+
+semantic_shots: true  # match montage shots to what the narration says (needs: pip install sentence-transformers)
 
 voice:
   engine: elevenlabs  # elevenlabs (natural, paid) | kokoro (free, offline, a bit robotic)

@@ -99,12 +99,12 @@ def refine_with_whisper(wav, words):
     return out
 
 
-def synth_all(ep, cfg, work):
+def synth_all(items, cfg, work):
+    """items: list of (key, text). Returns {key: {dur, words}}; only changed text is re-voiced."""
     work = Path(work); work.mkdir(parents=True, exist_ok=True)
     vcfg = cfg["voice"]; models = Path(cfg["cache_dir"]) / "models"
     sig = json.dumps([vcfg.get("engine"), vcfg.get("kokoro_voice"), vcfg.get("kokoro_speed"), vcfg.get("elevenlabs_voice_id"),
                       vcfg.get("elevenlabs_model"), vcfg.get("stability"), vcfg.get("style")])
-    items = [("hook", ep["hook"]["vo"])] + [(f["key"], f["vo"]) for f in ep["films"]] + [("outro", ep["outro"]["vo"])]
     meta_f = work / "vo.json"; meta = json.loads(meta_f.read_text(encoding="utf-8")) if meta_f.exists() else {}
     for key, text in items:
         wav = work / f"vo_{key}.wav"

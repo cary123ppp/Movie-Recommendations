@@ -6,12 +6,15 @@
 - `xxx_9x16.mp4`：竖屏，用于 TikTok、Shorts
 
 程序会自动完成：
+0. （可选）用 DeepSeek 读懂你随手写的文案，自动拆分成每部电影的段落；
 1. 去 TMDB 查电影信息（片名、年份、导演），去 OMDb 查 IMDb 评分和奥斯卡获奖情况；
 2. 找到官方预告片并下载（1080p）；
 3. 自动去掉预告片的黑边，挑出能用的镜头，避开片头 logo、结尾字卡和黑场；
 4. AI 配音，并生成逐词高亮的字幕；
-5. 按 ReelRank 的风格剪辑：电影节风格的片名卡（麦穗、星级、火星粒子）、快节奏混剪、金色字幕；
-6. 加上音效、背景低音，音量统一标准化到 -14 LUFS（YouTube 和 TikTok 的推荐响度）。
+5. 在解说之间插入 2～4 秒的**电影原声台词**（画面和声音同步），开头还可以先放一句原声当"冷开场"；
+6. 让混剪画面**跟着解说内容走**：解说说到直升机，画面就是直升机；
+7. 按 ReelRank 的风格剪辑：电影节风格的片名卡（麦穗、星级、火星粒子）、快节奏混剪、金色字幕；
+8. 加上音效、背景低音，音量统一标准化到 -14 LUFS（YouTube 和 TikTok 的推荐响度）。
 
 ---
 
@@ -22,6 +25,7 @@
 3. 双击 **`install.bat`**：会自动安装 ffmpeg 和所有依赖。第一次装 ffmpeg 后需要再双击一次。最后它会用记事本打开 `config.yaml`，把 key 填进去保存即可。
 4. 写文案：复制 `episodes\war_too_real.yaml` 改成你的内容（用记事本或 VS Code 编辑，保存为 UTF-8）。
 5. 把文案文件**拖到对应的图标上**：
+   - `plan.bat`：拖**自由格式的 .txt 文案**（放在 `scripts` 文件夹），DeepSeek 会自动拆分、挑原声台词，生成一份剪辑计划 `episodes\xxx.yaml`，你打开检查、修改
    - `check.bat`：检查电影和预告片有没有找对
    - `preview.bat`：几分钟出几张静帧，检查排版
    - `make.bat`：生成成品，完成后自动打开 `output` 文件夹
@@ -70,6 +74,7 @@ python -m pip install -r requirements.txt
 |---|---|---|
 | `tmdb_token` | themoviedb.org → Settings → API → **API Read Access Token**（很长的那串） | 必需 |
 | `omdb_key` | omdbapi.com → API Key → FREE，key 会发到邮箱 | 推荐（用于 IMDb 评分和奥斯卡信息） |
+| `deepseek_key` | platform.deepseek.com → API Keys | 推荐（拆分自由文案、挑选原声台词） |
 | `voice.elevenlabs_key` | elevenlabs.io → 左下角头像 → API Keys → Create | 必需（默认用 ElevenLabs 配音） |
 
 `config.yaml` 已经写在 `.gitignore` 里，**不会被上传到 GitHub**。
@@ -82,7 +87,25 @@ python -m pip install -r requirements.txt
 
 ---
 
-## 二、做一期视频
+## 二、做一期视频（推荐流程：自由文案 → 剪辑计划 → 成片）
+
+### 方式 A：随手写文案，让 DeepSeek 拆（推荐）
+
+1. 在 `scripts` 文件夹新建一个 `.txt`，按你习惯写完整的英文文案。开场、每部电影、结尾之间空一行就行，参考 `scripts\war_too_real.txt`。
+2. 想在某个位置插电影原声，就在那里写一个标记，例如：
+   ```
+   ...surrounded by hundreds of Taliban fighters on the high ground. [ORIGINAL: We hold this hill.] The battle plays out...
+   ```
+   程序会去预告片里找这句台词。不写标记的话，DeepSeek 会自动挑最合适的台词（每部电影最多 1 句，可在 config 里改）。
+3. 运行 `python -m reelrank plan scripts\xxx.txt`（或把 txt 拖到 `plan.bat`）。它会：拆分文案 → 查电影 → 下载预告片 → 识别预告片里的台词 → 挑原声位置 → 生成 `episodes\xxx.yaml`。
+4. 打开这份 yaml 检查一遍：片名和年份对不对、原声台词选得好不好（不喜欢就删掉那一条，或改成别的台词）。
+5. 运行 `build`（或拖到 `make.bat`）出成品。
+
+**原声片段在视频里的效果：** 解说停下，画面切到预告片里说这句台词的那个镜头，声音和嘴型同步，字幕用金色引号显示台词，背景音乐自动压低，2～4 秒后解说继续。
+
+### 方式 B：直接写剪辑计划（yaml）
+
+下面是 yaml 的格式说明，plan 生成的就是这种文件。
 
 ### 1. 写文案
 
@@ -157,6 +180,9 @@ python -m reelrank build episodes/horror_cant_sleep.yaml
 | `card_at` | 指定片名卡背景用第几秒的画面 | `card_at: 63.5` |
 | `fact` | 片名卡右侧的信息（默认根据奥斯卡信息自动生成） | `fact: ["TRUE STORY", "BENGHAZI, 2012"]` |
 | `director` / `imdb` / `year` | 手动覆盖自动查到的信息 | `imdb: 8.6` |
+| `originals` | 原声台词。`[]` = 这部不要原声；只写 `quote` 会自动在预告片里找 | `originals: [{quote: "Earn this.", after_sentence: 4}]` |
+
+整期的开场原声写在最外层：`cold_open: {film: 1, quote: "Earn this."}`；不要开场原声就写 `cold_open: false`。
 
 ---
 
@@ -172,6 +198,15 @@ python -m reelrank build episodes/xxx.yaml --config config_horror.yaml
 
 背景音乐：把免版权音乐（例如 YouTube 音频库里的）路径填到 `music:`，程序会在有人声时自动压低音乐音量。
 
+**config.yaml 里的相关开关：**
+```yaml
+originals:
+  auto: true        # 没写标记时，让 DeepSeek 自动挑原声
+  per_film: 1       # 每部电影最多几段原声，0 = 不要
+  cold_open: true   # 开头先放一句原声
+semantic_shots: true  # 混剪画面跟着解说内容走（第一次运行会下载约 600MB 的 CLIP 模型）
+```
+
 ---
 
 ## 五、常见问题
@@ -179,6 +214,7 @@ python -m reelrank build episodes/xxx.yaml --config config_horror.yaml
 - **预告片下载失败**：先运行 `python -m pip install -U yt-dlp` 更新下载工具（YouTube 经常改版）。还不行的话，就自己下载视频，用 `trailer_file` 指定本地文件。
 - **某个镜头里有字幕或片名字卡**：用 `exclude` 把那几秒排除掉。
 - **字幕高亮和声音对不齐**：ElevenLabs 会返回每个字的精确时间，字幕本来就是对齐的。如果用的是 Kokoro，可以安装 `faster-whisper` 改善对齐。
+- **原声台词找不到**：确认那句台词真的出现在预告片里（不是正片），可以用 `trailer_url` 换一个更长的预告片。
 - **ElevenLabs 报错 401 / 402**：401 是 key 填错了；402 是本月字符额度用完了。
 
 ---
@@ -196,6 +232,10 @@ python -m reelrank build episodes/xxx.yaml --config config_horror.yaml
 
 ```
 reelrank/
+  planner.py    DeepSeek 拆分自由文案
+  dialogue.py   预告片台词识别、原声挑选与剪切
+  semantic.py   画面与解说内容匹配（CLIP）
+  llm.py        DeepSeek 接口
   movies.py     TMDB / OMDb 查询
   trailer.py    预告片下载、黑边检测、镜头挑选
   voice.py      配音（Kokoro 免费 / ElevenLabs）和字幕时间轴
@@ -203,5 +243,6 @@ reelrank/
   render.py     画面渲染（片名卡、混剪版式、字幕）
   ornament.py   麦穗和星星
 assets/fonts/   字体（Cinzel、Limelight、Montserrat，均为 SIL 开源字体协议）
-episodes/       每期文案
+scripts/        自由格式文案（.txt）
+episodes/       剪辑计划（.yaml）
 ```

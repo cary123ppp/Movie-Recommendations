@@ -231,17 +231,23 @@ def _chunks(words):
         res.append((c[0][1], min(end, c[-1][2] + 0.4), c))
     return res
 
-def draw_caption(cv, key, t):
+def draw_caption(cv, t):
     L = S["lay"]
-    for a, b, c in S["caps"].get(key, []):
+    for a, b, kind, c in S["caps"]:
         if not (a <= t < b): continue
-        words = [re.sub(r'^["\'“”]+|["\'“”]+$', "", w) for w, _, _ in c]
+        p = ease((t - a) / 0.12) * min(1, (b - t) / 0.12 + 0.2)
+        if kind == "quote":
+            q = "\u201c" + c.strip().strip('"').strip() + "\u201d"
+            size = fit(q, CINZEL, L["cap_size"] + 6, 700, 1, L["cap_max"])
+            txt(cv, q, CINZEL, size, "white", S["W"] / 2, L["cap_y"] + (1 - p) * 8, w=700, track=1, alpha=p, shadow=0.85)
+            return
+        words = [re.sub(r'^["\'\u201c\u201d]+|["\'\u201c\u201d]+$', "", w) for w, _, _ in c]
         size = L["cap_size"]; f = font(MONT, size, 700); sp = f.getlength(" ")
         tot = sum(f.getlength(w) for w in words) + sp * (len(words) - 1)
         if tot > L["cap_max"]:
             size = int(size * L["cap_max"] / tot); f = font(MONT, size, 700); sp = f.getlength(" ")
             tot = sum(f.getlength(w) for w in words) + sp * (len(words) - 1)
-        p = ease((t - a) / 0.12); x = S["W"] / 2 - tot / 2
+        x = S["W"] / 2 - tot / 2
         for (w, ws, we), ww in zip(c, words):
             m = text_mask(ww, MONT, size, 700, 0)
             place(cv, tint(m, "gold" if ws <= t < we + 0.02 else "white", p), x - 4, L["cap_y"] - m.size[1] / 2 + (1 - p) * 8, "tl", 0.85)
@@ -255,7 +261,12 @@ def ladder(cv, cur, x, y, size):
 
 def montage(base, f, m, t, mt):
     W, H, L = S["W"], S["H"], S["lay"]
-    if S["fmt"] == "h":
+    if f is None:                                   # cold open: picture + quote only
+        if S["fmt"] == "h": cv = Image.fromarray(base).convert("RGBA")
+        else:
+            a = S["vbg"].copy(); y0, y1 = L["band"]; a[y0:y1] = base[y0:y1]
+            cv = Image.fromarray(np.clip(a, 0, 255).astype(np.uint8)).convert("RGBA")
+    elif S["fmt"] == "h":
         cv = Image.fromarray(base).convert("RGBA"); y = L["band"][0] / 2
         txt(cv, f"Nº {f['rank']}", CINZEL, 32, "gold", 120, y, w=800, anchor="lm", shadow=0)
         nw = text_mask(f"Nº {f['rank']}", CINZEL, 32, 800, 0).size[0]
@@ -273,7 +284,7 @@ def montage(base, f, m, t, mt):
         info = "  ·  ".join(x for x in [m.get("director", ""), str(m.get("year", "")), f"{m['rating_label']} {m['imdb']}"] if x)
         txt(cv, info, LIME, fit(info, LIME, 32, None, 2, 980), "gold", W / 2, 625, track=2)
         rule(cv, W / 2, y0 - 22, 160); rule(cv, W / 2, y1 + 22, 160)
-    draw_caption(cv, f["key"], t)
+    draw_caption(cv, t)
     if mt < 0.22: cv.alpha_composite(Image.new("RGBA", (W, H), (0, 0, 0, int(255 * (1 - mt / 0.22)))))
     return cv
 
@@ -283,6 +294,11 @@ def frame(base, t):
     tl = S["tl"]; W, H = S["W"], S["H"]
     s = next((x for x in tl["sections"] if x["start"] <= t < x["start"] + x["dur"]), tl["sections"][-1])
     lt = t - s["start"]
+    if s["kind"] == "cold":
+        cv = montage(base, None, None, t, lt)
+        k = min(1, (s["dur"] - lt) / 0.2)
+        if k < 1: cv.alpha_composite(Image.new("RGBA", (W, H), (0, 0, 0, int(255 * (1 - max(0, k))))))
+        return cv.convert("RGB")
     if s["kind"] == "film" and lt >= s["card"]:
         f = S["films"][s["key"]]; return montage(base, f, S["metas"][s["key"]], t, lt - s["card"]).convert("RGB")
     a = base.astype(np.float32) * 0.34 + embers(t) * 0.9 + S["rng"].normal(0, 4, (H, W))[..., None]
@@ -290,7 +306,7 @@ def frame(base, t):
     if s["kind"] == "hook": hook_card(cv, lt)
     elif s["kind"] == "outro": outro_card(cv, lt)
     else: film_card(cv, S["films"][s["key"]], S["metas"][s["key"]], lt)
-    fin = 1 if s["kind"] == "hook" else min(1, lt / 0.2)
+    fin = 1 if (s["kind"] == "hook" and s["start"] == 0) else min(1, lt / 0.2)
     end = s["card"] if s["kind"] == "film" else s["dur"]
     k = min(fin, (end - lt) / 0.25, 1)
     if k < 1: cv.alpha_composite(Image.new("RGBA", (W, H), (0, 0, 0, int(255 * (1 - max(0, k))))))
@@ -305,13 +321,18 @@ def setup(fmt, tl, ep, metas, vo, brand):
     y, x = np.mgrid[0:S["H"], 0:S["W"]]
     b = 14 + 10 * np.exp(-(((x - S["W"] / 2) / 700) ** 2 + ((y - S["H"] * 0.42) / 900) ** 2))
     S["vbg"] = np.dstack([b * 1.08, b * 0.98, b * 0.88]).astype(np.float32)
-    caps = {}
+    caps = []
     for s in tl["sections"]:
-        if s["kind"] != "film": continue
-        off = s["start"] + s["vo_at"]; ms = s["start"] + s["card"]
-        caps[s["key"]] = [(a + off, b + off, [(w, ws + off, we + off) for w, ws, we in c])
-                          for a, b, c in _chunks(vo[s["key"]]["words"]) if a + off >= ms - 0.15]
-    S["caps"] = caps
+        lo = s["start"] + (s["card"] - 0.15 if s["kind"] == "film" else 0)
+        for b in s["blocks"]:
+            off = s["start"] + b["at"]
+            if b["type"] == "orig":
+                if s["kind"] in ("film", "cold"): caps.append((off + 0.1, off + b["dur"] - 0.05, "quote", b["quote"]))
+                continue
+            if s["kind"] != "film": continue
+            caps += [(a + off, bb + off, "words", [(w, ws + off, we + off) for w, ws, we in c])
+                     for a, bb, c in _chunks(vo[b["key"]]["words"]) if a + off >= lo]
+    S["caps"] = sorted(caps, key=lambda c: -c[0])     # latest-starting caption wins on overlap
 
 
 def render(fmt, tl, ep, metas, vo, brand, base_path, out_path, only=None):
